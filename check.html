@@ -1,0 +1,38 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>buyfirst – connection check</title>
+<style>body{font:15px/1.5 system-ui,sans-serif;max-width:760px;margin:20px auto;padding:0 14px;background:#f4f5fb;color:#14161f}
+h1{font-size:22px}.r{background:#fff;border:1px solid #e2e4ef;border-radius:12px;padding:10px 14px;margin:8px 0}.ok{border-left:6px solid #0f9d58}.bad{border-left:6px solid #d93025}.wn{border-left:6px solid #f5a623}
+small{color:#5b6075;display:block;margin-top:4px}code{background:#eef0fa;padding:1px 5px;border-radius:5px;word-break:break-all}</style></head><body>
+<h1>buyfirst · connection check</h1><p>Open this page on your live site (<code>…/check.html</code>). Every line should be green. Send me a screenshot of any red or orange line.</p>
+<div id="out"></div>
+<script src="js/vendor/supabase.js"></script><script src="js/config.js"></script>
+<script>
+const out=document.getElementById('out');
+const add=(k,t,h)=>{const d=document.createElement('div');d.className='r '+k;d.innerHTML=(k=='ok'?'✅ ':k=='bad'?'❌ ':'⚠️ ')+t+(h?'<small>'+h+'</small>':'');out.appendChild(d)};
+(async()=>{
+ const C=window.BUYFIRST_CONFIG||{};let url=String(C.SUPABASE_URL||'').trim(),key=String(C.SUPABASE_ANON_KEY||'').trim();
+ add('ok','Page loaded from <code>'+location.href+'</code>');
+ if(!window.supabase)return add('bad','Supabase library did not load','File <code>js/vendor/supabase.js</code> is missing from your GitHub repo (upload the whole <b>js</b> folder, including <b>vendor</b>).');
+ add('ok','Supabase library loaded');
+ if(!url||/YOUR[-_]/i.test(url+key))return add('bad','<code>js/config.js</code> still has placeholder text','The config.js that is on GitHub is not the filled-in one. Edit it on GitHub and commit.');
+ const clean=url.replace(/\/(rest|auth|storage)\/v1.*$/i,'').replace(/\/+$/,'');
+ if(clean!==url)add('wn','Project URL had extra text: <code>'+url+'</code>','The site fixes this automatically, but the clean form is <code>'+clean+'</code>.');
+ if(!/^https:\/\/[a-z0-9]+\.supabase\.co$/i.test(clean))add('wn','URL does not look like <code>https://xxxx.supabase.co</code>: <code>'+clean+'</code>');
+ if(/service_role|sb_secret/i.test(key)||(key.split('.').length==3&&atob(key.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')).includes('service_role')))return add('bad','This is a SECRET key — remove it from config.js now!','Use the Publishable / anon key only, and reset the secret key in Supabase → Project Settings → API Keys.');
+ add('ok','Config found: <code>'+clean+'</code>, key starts <code>'+key.slice(0,16)+'…</code>');
+ url=clean;const H={apikey:key};if(key.split('.').length==3)H.Authorization='Bearer '+key;
+ try{const r=await fetch(url+'/auth/v1/settings',{headers:H});
+  if(r.ok){const s=await r.json();add('ok','Reached Supabase Auth (HTTP 200)');
+   add(s.disable_signup?'bad':'ok','New sign-ups are '+(s.disable_signup?'<b>DISABLED</b>':'allowed'),s.disable_signup?'Supabase → Authentication → Sign In / Providers → turn ON “Allow new users to sign up”.':'');
+   add(s.mailer_autoconfirm?'ok':'wn','Confirm email is '+(s.mailer_autoconfirm?'OFF (customers can log in right after registering)':'ON (customers must click an email link first)'),s.mailer_autoconfirm?'':'Supabase free email sending is limited to a few emails per hour. For testing, turn “Confirm email” OFF in Authentication → Sign In / Providers → Email.');
+  }else add('bad','Supabase Auth answered HTTP '+r.status,r.status==401||r.status==403?'The key is not accepted by this project. Copy the Publishable key again from Project Settings → API Keys.':'Check the project URL.');
+ }catch(e){add('bad','Cannot reach <code>'+url+'</code> — “'+e.message+'”','This is the “Failed to fetch” problem. Causes: (1) project is <b>paused</b> — free projects pause after 7 days idle: open the Supabase dashboard and click <b>Restore project</b>; (2) the URL in config.js is wrong; (3) an ad-blocker, VPN or network is blocking supabase.co — try another browser / mobile data; (4) you are opening the site from an old cached copy — hard refresh.');return}
+ const sb=window.supabase.createClient(url,key);
+ for(const t of ['products','settings','promo_codes','ads','policies']){
+  const {data,error}=await sb.from(t).select('*').limit(50);
+  if(error)add('bad','Table <code>'+t+'</code>: '+error.message,/does not exist|schema cache|relation/i.test(error.message)?'Run <code>supabase/schema.sql</code> in the SQL Editor.':'Re-run schema.sql (it fixes permissions).');
+  else add('ok','Table <code>'+t+'</code> readable ('+data.length+' rows)',t=='products'&&!data.length?'No products yet — run <code>supabase/seed.sql</code> or add products from the owner dashboard.':'');}
+ try{const t=await (await fetch('js/app.js',{cache:'no-store'})).text();
+  add(/aerr/.test(t)&&/BF_BUILD/.test(t)?'ok':'bad','Site code (<code>js/app.js</code>) is '+(/BF_BUILD/.test(t)?'the latest version':'an OLD version'),/BF_BUILD/.test(t)?'':'Upload the new <code>js/app.js</code> from the latest zip, commit, wait 1–2 minutes, then hard refresh (Ctrl+Shift+R).');}catch(e){add('bad','Could not read js/app.js',e.message)}
+ try{const i=await (await fetch('index.html',{cache:'no-store'})).text();const m=[...i.matchAll(/<script[^>]+src="([^"]+)"/g)].map(x=>x[1]);add(m.some(x=>/js\/app\.js/.test(x))&&m.some(x=>/vendor\/supabase/.test(x))?'ok':'bad','index.html scripts: <code>'+m.join(', ')+'</code>',m.some(x=>/js\/app\.js/.test(x))?'':'Your index.html is an old one — replace it with the one from the latest zip.')}catch(e){}
+})();
+</script></body></html>
