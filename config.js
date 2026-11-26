@@ -9,6 +9,6 @@
      this repository.
 --------------------------------------------------------------------- */
 window.BUYFIRST_CONFIG = {
-  SUPABASE_URL: 'https://sjkaiannixfyxaxqhsej.supabase.co',
-  SUPABASE_ANON_KEY: 'sb_publishable_wnrGk8aq5vWAHdtQ8-UyBQ_AhLJ2QHF'
+  SUPABASE_URL: 'https://azahrkomsnnmtntpxnvw.supabase.co',
+  SUPABASE_ANON_KEY: 'sb_publishable_zu7NBVcWzs4PZjwQt_iZzg_zuZLIsgE'
 };
